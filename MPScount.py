@@ -1,3 +1,5 @@
+lookup = dict()
+
 #Wrapper class for counting N, M, W, C for a given adjacency graph
 class AdjacencyGraphInfo:
     #Constructor, with a copy option
@@ -65,12 +67,24 @@ class AdjacencyGraphInfo:
         self.C[l] -= 1
         if self.C[l] == 0:
             del self.C[l]
+    
+    def __eq__(self, other):
+        return self.N == other.N and self.M == other.M and self.W == other.W and\
+            self.C == other.C
+    
+    def __str__(self):
+        return "N: %s\nW: %s\nM: %s\nC: %s" % (str(self.N), str(self.W), str(self.M), str(self.C))
+    
+    def __repr__(self):
+        return str(self)
 
 #Given an AdjacencyGraphInfo object, count the number of MPS's for
 #the corresponding genomes
-def countMPS(g, combine_first = False):
+def countMPS(g, combine_first = False, use_lookup = True):
     if len(g.N) + len(g.W) + len(g.M) + len(g.C) == 0:
         return 1
+    elif not combine_first and use_lookup and str(g) in lookup:
+        return lookup[str(g)]
     
     answer = 0
     if not combine_first:
@@ -138,4 +152,10 @@ def countMPS(g, combine_first = False):
                 new_new_g.addN(lm + lw - n - 1)
                 answer += 4 * g.M[lm] * g.W[lw] * countMPS(new_new_g)
     
+    if use_lookup and not combine_first:
+        lookup[str(g)] = answer
     return answer
+
+#Clear the memory for the lookup table
+def free_lookup():
+    lookup = dict()
