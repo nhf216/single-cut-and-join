@@ -158,4 +158,5 @@ def countMPS(g, combine_first = False, use_lookup = True):
 
 #Clear the memory for the lookup table
 def free_lookup():
+    global lookup
     lookup = dict()
