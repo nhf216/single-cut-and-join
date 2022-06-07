@@ -68,6 +68,34 @@ class AdjacencyGraphInfo:
         if self.C[l] == 0:
             del self.C[l]
     
+    #Count the number of N's
+    def countN(self):
+        count = 0
+        for l in self.N:
+            count += self.N[l]
+        return count
+    
+    #Count the number of W's
+    def countW(self):
+        count = 0
+        for l in self.W:
+            count += self.W[l]
+        return count
+    
+    #Count the number of M's
+    def countM(self):
+        count = 0
+        for l in self.M:
+            count += self.M[l]
+        return count
+    
+    #Count the number of C's
+    def countC(self):
+        count = 0
+        for l in self.C:
+            count += self.C[l]
+        return count
+    
     def __eq__(self, other):
         return self.N == other.N and self.M == other.M and self.W == other.W and\
             self.C == other.C
@@ -80,10 +108,19 @@ class AdjacencyGraphInfo:
 
 #Given an AdjacencyGraphInfo object, count the number of MPS's for
 #the corresponding genomes
-def countMPS(g, combine_first = False, use_lookup = True):
+def countMPS(g, combine_first = False, use_lookup = True, optimize_MW = True):
     if len(g.N) + len(g.W) + len(g.M) + len(g.C) == 0:
         return 1
-    elif not combine_first and use_lookup and str(g) in lookup:
+    
+    #If optimize_MW is true, if there are more M's than W's, swap them
+    if optimize_MW and g.countM() > g.countW():
+        new_g = AdjacencyGraphInfo(g)
+        temp = new_g.M
+        new_g.M = new_g.W
+        new_g.W = temp
+        g = new_g
+    
+    if not combine_first and use_lookup and str(g) in lookup:
         return lookup[str(g)]
     
     answer = 0
