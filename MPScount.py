@@ -18,7 +18,7 @@ class AdjacencyGraphInfo:
     
     #Add an N to the adjacency graph with l V's in it
     def addN(self, l):
-        if l >= 1:
+        if l >= 0:
             if l not in self.N:
                 self.N[l] = 0
             self.N[l] += 1
@@ -111,6 +111,8 @@ class AdjacencyGraphInfo:
 def countMPS(g, combine_first = False, use_lookup = True, optimize_MW = True):
     if len(g.N) + len(g.W) + len(g.M) + len(g.C) == 0:
         return 1
+    elif len(g.W) + len(g.M) + len(g.C) == 0 and len(g.N) == 1 and 0 in g.N:
+        return 1
     
     #If optimize_MW is true, if there are more M's than W's, swap them
     if optimize_MW and g.countM() > g.countW():
@@ -127,10 +129,11 @@ def countMPS(g, combine_first = False, use_lookup = True, optimize_MW = True):
     if not combine_first:
         #Reduce an N
         for l in g.N:
-            new_g = AdjacencyGraphInfo(g)
-            new_g.removeN(l)
-            new_g.addN(l - 1)
-            answer += g.N[l] * countMPS(new_g)
+            if l > 0:
+                new_g = AdjacencyGraphInfo(g)
+                new_g.removeN(l)
+                new_g.addN(l - 1)
+                answer += g.N[l] * countMPS(new_g)
 
         #Reduce a W
         for l in g.W:
