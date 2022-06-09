@@ -169,7 +169,7 @@ def countMPS(g, combine_first = False, use_lookup = True, optimize_MW = True):
             new_g.removeC(lc)
             new_g.removeW(lw)
             new_g.addW(lc + lw)
-            answer += 2 * lc * g.C[lc] * g.W[lw] * countMPS(new_g)
+            answer += 4 * lc * g.C[lc] * g.W[lw] * countMPS(new_g)
     
     #Combine a C and N
     for lc in g.C:
@@ -178,7 +178,7 @@ def countMPS(g, combine_first = False, use_lookup = True, optimize_MW = True):
             new_g.removeC(lc)
             new_g.removeN(ln)
             new_g.addN(lc + ln)
-            answer += lc * g.C[lc] * g.N[ln] * countMPS(new_g)
+            answer += 2 * lc * g.C[lc] * g.N[ln] * countMPS(new_g)
     
     #Combine an M and W
     for lm in g.M:
