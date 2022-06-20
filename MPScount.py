@@ -133,7 +133,8 @@ def countMPS(g, combine_first = False, use_lookup = True, optimize_MW = True):
                 new_g = AdjacencyGraphInfo(g)
                 new_g.removeN(l)
                 new_g.addN(l - 1)
-                answer += g.N[l] * countMPS(new_g)
+                answer += g.N[l] * countMPS(new_g, use_lookup = use_lookup,\
+                                            optimize_MW = optimize_MW)
 
         #Reduce a W
         for l in g.W:
@@ -143,7 +144,8 @@ def countMPS(g, combine_first = False, use_lookup = True, optimize_MW = True):
                 answer += g.W[l] * countMPS(new_g)
             else:
                 new_g.addW(l - 1)
-                answer += 2 * g.W[l] * countMPS(new_g)
+                answer += 2 * g.W[l] * countMPS(new_g, use_lookup = use_lookup,\
+                                                optimize_MW = optimize_MW)
 
         #Reduce an M
         for l in g.M:
@@ -153,14 +155,16 @@ def countMPS(g, combine_first = False, use_lookup = True, optimize_MW = True):
                 new_new_g = AdjacencyGraphInfo(new_g)
                 new_new_g.addN(n)
                 new_new_g.addN(l - n - 1)
-                answer += g.M[l] * countMPS(new_new_g)
+                answer += g.M[l] * countMPS(new_new_g, use_lookup = use_lookup,\
+                                            optimize_MW = optimize_MW)
 
         #Reduce a C
         for l in g.C:
             new_g = AdjacencyGraphInfo(g)
             new_g.removeC(l)
             new_g.addW(l)
-            answer += l * g.C[l] * countMPS(new_g)
+            answer += l * g.C[l] * countMPS(new_g, use_lookup = use_lookup,\
+                                            optimize_MW = optimize_MW)
     
     #Combine a C and W
     for lc in g.C:
@@ -169,7 +173,8 @@ def countMPS(g, combine_first = False, use_lookup = True, optimize_MW = True):
             new_g.removeC(lc)
             new_g.removeW(lw)
             new_g.addW(lc + lw)
-            answer += 4 * lc * g.C[lc] * g.W[lw] * countMPS(new_g)
+            answer += 4 * lc * g.C[lc] * g.W[lw] * countMPS(new_g, use_lookup = use_lookup,\
+                                                            optimize_MW = optimize_MW)
     
     #Combine a C and N
     for lc in g.C:
@@ -178,7 +183,8 @@ def countMPS(g, combine_first = False, use_lookup = True, optimize_MW = True):
             new_g.removeC(lc)
             new_g.removeN(ln)
             new_g.addN(lc + ln)
-            answer += 2 * lc * g.C[lc] * g.N[ln] * countMPS(new_g)
+            answer += 2 * lc * g.C[lc] * g.N[ln] * countMPS(new_g, use_lookup = use_lookup,\
+                                                            optimize_MW = optimize_MW)
     
     #Combine an M and W
     for lm in g.M:
@@ -190,7 +196,8 @@ def countMPS(g, combine_first = False, use_lookup = True, optimize_MW = True):
                 new_new_g = AdjacencyGraphInfo(new_g)
                 new_new_g.addN(n)
                 new_new_g.addN(lm + lw - n - 1)
-                answer += 4 * g.M[lm] * g.W[lw] * countMPS(new_new_g)
+                answer += 4 * g.M[lm] * g.W[lw] * countMPS(new_new_g, use_lookup = use_lookup,\
+                                                           optimize_MW = optimize_MW)
     
     if use_lookup and not combine_first:
         lookup[str(g)] = answer
