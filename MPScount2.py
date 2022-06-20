@@ -1,5 +1,7 @@
+#Lookup table
 lookup = dict()
 
+#Global variables for the different component types
 N = 1
 W = 2
 M = 3
@@ -7,6 +9,7 @@ C = 4
 
 label_dict = {N:'N', W:'W', M:'M', C:'C'}
 
+#Wrapper class for info about a single component
 class Component:
     def __init__(self, c_type, c_size):
         self.type = c_type
@@ -18,6 +21,7 @@ class AdjacencyGraphInfo:
     #If not copying, construct a blank object
     def __init__(self, other = None):
         if other is not None:
+            #Make a copy
             self.components = dict()
             for key in other.components:
                 self.components[key] = dict(other.components[key])
@@ -30,21 +34,29 @@ class AdjacencyGraphInfo:
             self.groupdict = dict(other.groupdict)
             self.mergers = set(other.mergers)
         else:
+            #Create a blank object
+            #The components themselves
             self.components = dict()
             for key in {N, W, M, C}:
                 self.components[key] = dict()
+            #Indices for tracking components and groups
             self.mindex = 0
             self.gindex = 0
+            #Info bits about interactions
             self.isolates = set()
             self.groups = dict()
             self.groupdict = dict()
             self.mergers = set()
     
+    #Retrieve a component based on its index
+    #Returns None if there's no component with that index
     def getComponent(self, index):
         for key in self.components:
             if index in self.components[key]:
                 return Component(key, self.components[key][index])
     
+    #Retrieve the type of a component, based on its index
+    #Returns None if there's no component with that index
     def getType(self, index):
         component = self.getComponent(index)
         if component is None:
@@ -52,9 +64,11 @@ class AdjacencyGraphInfo:
         else:
             return component.type
     
+    #Count the number of components of the given type
     def countComponent(self, c_type):
         return len(self.components[c_type])
     
+    #Add a component of the given type and size
     def addComponent(self, c_type, c_size):
         self.components[c_type][self.mindex] = c_size
         self.mindex += 1
@@ -80,54 +94,89 @@ class AdjacencyGraphInfo:
         if l >= 2:
             return self.addComponent(C, l)
     
+    #Remove an index from group references, possibly replacing it with some new_indices
+    #Do not call this method externally.
     def groupRemove(self, index, *new_indices):
+        #Check if there's any work to do
         if index in self.groupdict:
+            #Get the group
             group = self.groups[self.groupdict[index]]
+            #Remove the index from it
             group.remove(index)
+            #Do we need to add anything in place of index?
             if len(new_indices) == 0:
+                #We now have a singleton group
                 if len(group) == 1:
+                    #Remove the remaining element from it
                     self.groupRemove(list(group)[0])
+                #We now have an empty group
                 elif len(group) == 0:
+                    #Delete the group
                     del self.groups[self.groupdict[index]]
             else:
+                #Put the new indices in
                 for new_index in new_indices:
                     group.add(new_index)
                     self.groupdict[new_index] = self.groupdict[index]
+            #Delete the group reference for index
             del self.groupdict[index]
     
+    #Remove all references to an index, possibly replacing it with some new_indices
+    #Do not call this method externally.
+    #The argument c_type is there as an optimization
     def purgeIndex(self, c_type, index, *new_indices):
+        #Delete this index from the components
         del self.components[c_type][index]
+        #Remove/replace group references
         self.groupRemove(index, *new_indices)
+        #Remove/replace isolation requirements
         if index in self.isolates:
             self.isolates.remove(index)
             for new_index in new_indices:
                 self.isolates.add(new_index)
+        #Remove/replace merge requirement
         if index in self.mergers:
             self.mergers.remove(index)
             for new_index in new_indices:
                 self.mergers.add(new_index)
     
+    #Operate on one or two components in any legal way
+    #Specify the component(s) by their indices
+    #Any operation involving an M requires cut_loc, an integer from 0 to 1 less than the M's size
+    #An M-W cut-join requires cj_left. If true, the left piece of the M is joined to the W
+    #If there are multiple ways to obtain isomorphic objects, only one is obtained
     def operateComponents(self, index, index2 = None, cut_loc = None, cj_left = None):
         component = self.getComponent(index)
         if index2 is None:
+            #Single N
             if component.type == N:
                 if component.size > 0:
+                    #Make it smaller
                     self.components[N][index] -= 1
+            #Single W
             elif component.type == W:
                 if component.size > 1:
+                    #Make it smaller
                     self.components[W][index] -= 1
                 else:
+                    #Delete it (join to trivial cycle)
                     self.purgeIndex(W, index)
+            #Single M
             elif component.type == M:
+                #Cut it
                 idx1 = self.addN(cut_loc)
                 idx2 = self.addN(component.size - cut_loc - 1)
                 self.purgeIndex(M, index, idx1, idx2)
+            #Single C
             else:
+                #Cut it
                 idx1 = self.addW(component.size)
                 self.purgeIndex(C, index, idx1)
         else:
             component2 = self.getComponent(index2)
+            #M-W cut-join
             if {component.type, component2.type} == {M, W}:
+                #Figure out which component is which
                 if component.type == W:
                     m_index = index2
                     m_size = component2.size
@@ -138,6 +187,7 @@ class AdjacencyGraphInfo:
                     m_size = component.size
                     w_index = index2
                     w_size = component2.size
+                #Cut-join into two N's
                 self.purgeIndex(M, m_index)
                 self.purgeIndex(W, w_index)
                 if cj_left:
@@ -146,7 +196,9 @@ class AdjacencyGraphInfo:
                 else:
                     self.addN(cut_loc)
                     self.addN(w_size + m_size - cut_loc - 1)
+            #C-W cut-join
             elif {component.type, component2.type} == {C, W}:
+                #Figure out which component is which
                 if component.type == W:
                     c_index = index2
                     c_size = component2.size
@@ -163,7 +215,9 @@ class AdjacencyGraphInfo:
                 #Overwrite the old W with the new, bigger W
                 self.components[W][w_index] += c_size
                 self.purgeIndex(C, c_index)
+            #C-N cut-join
             elif {component.type, component2.type} == {C, N}:
+                #Figure out which component is which
                 if component.type == N:
                     c_index = index2
                     c_size = component2.size
@@ -181,12 +235,16 @@ class AdjacencyGraphInfo:
                 self.components[N][n_index] += c_size
                 self.purgeIndex(C, c_index)
     
+    #Force the component with the given index not to cut-join with another component
     def isolateComponent(self, index):
         self.isolates.add(index)
     
+    #For the component with the given index to cut-join with another component
+    #This does not allow an M to cut and later have one of the N's cut-join to a C.
     def mergeComponent(self, index):
         self.mergers.add(index)
     
+    #Force the components at the given indices to sort together
     def groupComponents(self, *indices):
         #Check if valid group
         if len(indices) <= 1:
@@ -201,6 +259,7 @@ class AdjacencyGraphInfo:
             if not ((counts[N] == 0 and counts[M] <= 1 and counts[W] <= 1) or\
                     (counts[M] == 0 and counts[W] == 0 and counts[C] == 1 and counts[N] == 1)):
                 return
+        #Build the group if allowed to, including all necessary references
         gindex = self.gindex
         self.gindex += 1
         self.groups[gindex] = set(indices)
@@ -208,6 +267,7 @@ class AdjacencyGraphInfo:
             self.groupdict[index] = gindex
         return gindex
     
+    #Can we use M-W symmetry to our advantage? Dependency information may block this.
     def canSwapMW(self):
         #Make sure have none of the following:
         #-M or W in mergers
@@ -229,21 +289,29 @@ class AdjacencyGraphInfo:
                 return False
         return True
     
+    #Swap the M's and W's in this adjacency graph
     def swapMW(self):
         temp = self.components[M]
         self.components[M] = self.components[W]
         self.components[W] = temp
     
+    #Can we reduce the given component(s)?
+    #If two indices are given, check only if they can be cut-joined together immediately.
     def canReduce(self, index, index2 = None):
         component = self.getComponent(index)
+        #Single component
         if index2 is None:
+            #Can't cut an M that's forced to interact
             if component.type == M and index in (set(self.groupdict) | self.mergers):
                 return False
+            #Can't join a V that's forced to interact
             elif component.type == W and index in (set(self.groupdict) | self.mergers) and\
                     component.size == 1:
                 return False
+            #Can't operate on a trivial N
             elif component.type == N and component.size == 0:
                 return False
+            #Can't cut a crown that already has a W it's forced to interact with
             elif component.type == C:
                 #Check for the presence of other crowns
                 if index in self.mergers and self.countComponent(C) == 1:
@@ -255,6 +323,8 @@ class AdjacencyGraphInfo:
                             return False
             return True
         else:
+            #Can't interact things that are required to isolate
+            #FLATTEN THE CURVE!!!
             if index in self.isolates or index2 in self.isolates:
                 return False
             component2 = self.getComponent(index2)
@@ -313,6 +383,8 @@ class AdjacencyGraphInfo:
                 #Can't merge anything else
                 return False
     
+    #Do we only have trivial N's and trivial cycles?
+    #(Note: Trivial cycles are not represented.)
     def isTrivial(self):
         if self.countComponent(M) + self.countComponent(W) + self.countComponent(C) > 0:
             return False
