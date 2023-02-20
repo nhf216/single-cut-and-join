@@ -86,6 +86,20 @@ def multinomial(n, *k):
         top -= k[i]
     return ret
 
+#Generate all bipartitions of {0,1,2,...,n-1}
+#Output is a set of tuples
+def bipartitions(n):
+    if n == 0:
+        return frozenset([(frozenset(), frozenset())])
+    #Generate all bipartitions without n-1
+    prev_bips = bipartitions(n - 1)
+    ret = set()
+    for prev_bip in prev_bips:
+        #Insert n-1 into each side
+        ret.add((prev_bip[0] | {n - 1}, prev_bip[1]))
+        ret.add((prev_bip[0], prev_bip[1] | {n - 1}))
+    return ret
+
 #Helper function for extracting chunks of a list R-style
 def index_into(L):
     return lambda i: L[i]
@@ -121,6 +135,24 @@ def count_N(c, n):
     lookup_table[key] = ret
     return ret
 
+#Count ways a bunch of crowns and two N's can sort "together"
+#This is only used as a helper for count_MW
+def count_NN(c, n1, n2):
+    key = lookup_key(c = c, n = (n1, n2))
+    if key in lookup_table:
+        return lookup_table[key]
+    dist = distance(c = c, n = (n1, n2))
+    #Bipartition the crowns to decide who goes with which crown
+    bips = bipartitions(len(c))
+    ret = 0
+    for bip in bips:
+        c1 = tuple(map(index_into(c), bip[0]))
+        c2 = tuple(map(index_into(c), bip[1]))
+        #Do both N counts, multiply by an appropriate binomial coefficient
+        ret += math.comb(dist, distance(c = c1, n = (n1,))) * count_N(c1, n1) * count_N(c2, n2)
+    lookup_table[key] = ret
+    return ret
+
 #Count ways a bunch of crowns and a W can sort together
 def count_W(c, w):
     key = lookup_key(c = c, w = (w,))
@@ -144,19 +176,16 @@ def count_MW(c, m, w):
     key = lookup_key(c = c, m = (m,), w = (w,))
     if key in lookup_table:
         return lookup_table[key]
-    #Start with twice all ways to sort C with a W of size m+w
-    ret = 2 * count_W(c, m + w)
-    #If m>1, add in a recursive term
-    if m > 1:
-        ret += count_MW(c, m - 1, w)
-    #If w>1, add in a recursive term
-    if w > 1:
-        ret += count_MW(c, m, w - 1)
-    #Loop over all possible ways to choose a crown and recursively do stuff
+    ret = 0
+    #Loop over all possible ways to cut-join a crown to the W
     for i in range(len(c)):
-        cx = c[:i] + c[i+1:]
-        ret += 2 * c[i] * (count_MW(cx, c[i] + m, w) + count_MW(cx, m, c[i] + w) -\
-                           count_MW(cx, c[i], m + w))
+        ret += 4 * c[i] * count_MW(c[:i] + c[i+1:], m, c[i] + w)
+    #Loop over all possible ways to cut-join the M with the W
+    for i in range(m):
+        ret += 4 * count_NN(c, i, m + w - i - 1)
+    #Add in the possibility of reducing the W
+    if w > 1:
+        ret += 2 * count_MW(c, m, w - 1)
     lookup_table[key] = ret
     return ret
 
@@ -176,8 +205,10 @@ def count_MPS(c = tuple(), m = tuple(), w  = tuple(), n = tuple()):
         max_max_w = sum(c)
     if len(n) > 0:
         max_max_n = max(n) + max_m + max_max_w
+        biggest_n = max(n)
     else:
         max_max_n = max_m + max_max_w
+        biggest_n = 0
     #Generate subsets of the crows in increasing order of cardinality
     for num_c in range(len(c)):
         for c_indices in itertools.combinations(range(len(c)), num_c):
@@ -191,6 +222,10 @@ def count_MPS(c = tuple(), m = tuple(), w  = tuple(), n = tuple()):
             #Do the W's
             for i in range(1, max_w + 1):
                 count_W(c_set, i)
+            #Do the NN's
+            for n1 in range(max_m):
+                for n2 in range(n1, max_n + biggest_n - n1 + 1):
+                    count_NN(c_set, n1, n2)
             #Do the MW's
             for i in range(1, max_m + 1):
                 for j in range(1, max_w + 1):
